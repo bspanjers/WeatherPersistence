@@ -7,13 +7,13 @@ Follow the steps below to set up the necessary **data** and **code**.
 
 ---
 
-##  1 Download & Set Up the Repository **
+##  1 Download & Set Up the Repository 
 First, ensure you have the **WeatherPersistence** repository on your local device.  
 If you haven't cloned it yet, run:
 ```bash
 git clone git@github.com:bspanjers/WeatherPersistence.git
 ```
-## ** 2 Download Weather Station Data **
+##  2 Download Weather Station Data 
 The required weather station data is **too large** to be uploaded directly.  
 
  **Download the following datasets manually from**:  
@@ -27,10 +27,10 @@ The required weather station data is **too large** to be uploaded directly.
 
 ---
 
-## ** 3 Organize the Data Files**
+##  3 Organize the Data Files
 Once downloaded, **move the files** into the correct directory:  
 
-### ** Move the data to the persistence_data folder**
+### Move the data to the persistence_data folder
 ```bash
 mv /path/to/downloaded/ECA_blend_rr/ persistence/data_persistence/
 mv /path/to/downloaded/ECA_blend_tg/ persistence/data_persistence/
