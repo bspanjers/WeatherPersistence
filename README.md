@@ -7,13 +7,13 @@ Follow the steps below to set up the necessary **data** and **code**.
 
 ---
 
-## ** 1 Download & Set Up the Repository**
+##  1 Download & Set Up the Repository **
 First, ensure you have the **WeatherPersistence** repository on your local device.  
 If you haven't cloned it yet, run:
 ```bash
 git clone git@github.com:bspanjers/WeatherPersistence.git
 ```
-## ** 2 Download Weather Station Data**
+## ** 2 Download Weather Station Data **
 The required weather station data is **too large** to be uploaded directly.  
 
  **Download the following datasets manually from**:  
