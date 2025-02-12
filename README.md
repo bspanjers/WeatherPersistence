@@ -3,6 +3,8 @@
 
 ## ** Overview**
 This guide explains how to **replicate** the results of our study.  
+The easiest way to obtain the figures it to go to the **plots_paper** notebook. If you want to generate the weather station data in Figure 1, 3 and 4, we refer to the **gen_precipitation_data** and **gen_temperature_data** notebooks. Otherwise, follow the steps below
+
 Follow the steps below to set up the necessary **data** and **code**.
 
 ---
@@ -35,4 +37,8 @@ Once downloaded, **move the files** into the correct directory:
 mv /path/to/downloaded/ECA_blend_rr/ persistence/data_persistence/
 mv /path/to/downloaded/ECA_blend_tg/ persistence/data_persistence/
 ```
+
+## 4 Run the code
+You will now be able to run the plots_paper.py file to run obtain the Figures presented in the paper. If you want to obtain the weather station data, you can visit the notebook or run **gen_data_fig3.py** and **gen_precip_data.py**.
+
 
