@@ -26,24 +26,15 @@ test.plot_fourier_fit_full(vTau=[0.05, 0.5, .95], alpha=0.05)
 
 
 ###### FIGURE 3 #######
-#df_05 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_05_1950.csv')
-#df_50 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_.5_1950.csv')
-#df_50.columns = ['STANAME', 'STAID', 'latitude', 'longitude', 'mean_diff_winter',
-#       'mean_diff_spring', 'mean_diff_summer', 'mean_diff_autumn',
-#       'mean_diff_pers_winter', 'mean_diff_pers_spring',
-#       'mean_diff_pers_summer', 'mean_diff_pers_autumn']
-#df_95 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_95_1950.csv')
 df_05 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_05_1950final.csv')
 df_50 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_.5_1950final.csv')
 df_95 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_95_1950final.csv')
-
 
 df_05_plusmin = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_05_1950includeNAO.csv')
 df_50_plusmin = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_.5_1950includeNAO.csv')
 df_95_plusmin = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_95_1950includeNAO.csv')
 
 df_results_list = [df_05, df_50, df_95, df_05_plusmin, df_50_plusmin, df_95_plusmin]
-
 plot_combined(df_results_list, 'winter')
 
 
