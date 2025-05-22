@@ -12,6 +12,7 @@ from QAR_persistence_precip import QAR_precipitation
 from statsmodels.tools.sm_exceptions import PerfectSeparationError
 import warnings
 warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
+from scipy.stats import norm
 
 def read_climate_data(file_path):
     # Initialize variables
@@ -104,18 +105,18 @@ for (i, file_name) in enumerate(np.sort(os.listdir(folder_path))[1:-4]):
                 lat_long.iloc[i,:] = [file_name, station_name, latitude, longitude, city_name]
 
 # now for the selected stations calculate the statistics for dec 23-feb 24 
-start_date = 2020
+start_date = 1950
 start_year_old = start_date
 end_year_old = start_date + 30
-start_year_new = 2023
-end_year_new = start_year_new + 35
+start_year_new = 1950
+end_year_new = start_year_new + 70
 drop_na_larger_than = 0.05
 
 df = lat_long.dropna()  
 df.columns =  ['file_name', 'STAID', 'latitude', 'longitude', 'city_name']
 df_results = pd.DataFrame(np.zeros((len(df), 12)), columns=['STANAME', 'STAID', 'latitude', 'longitude', 
-                                                            'maxStreak', 'rain_acc', 'percentage_rainy_days_upperquintile', 'percentage_rainy_days_NAOplus', \
-                                                                'nao_upper_quintile_acc', 'nao_pos_acc', 'total_precip_acc', 'percentage_rainy_days_total'])
+                                                            'maxStreak', 'total_rain_acc', 'percentage_rainy_days_upperquintile', 'percentage_rainy_days_NAOplus', \
+                                                                'nao_upper_quintile_acc', 'nao_pos_acc', 'total_precip_acc_yearly', 'percentage_rainy_days_total'])
 df_results[:] = np.nan
 for (i, file_name) in enumerate(df.file_name):
     print(f'\rCurrently calculating station {i+1} out of {len(df.file_name)}', end='')
@@ -139,9 +140,9 @@ for (i, file_name) in enumerate(df.file_name):
         
         # Assign season to each row
         data_new['season'] = data_new.index.month.isin([12])#data_new.index.month.map(get_season).values
-        data_winter_new = data_new.loc[(data_new.season == True) & (data_new.index >=pd.Timestamp('2023-03-01'))]
+        data_winter_new = data_new.loc[data_new.season == True] #& (data_new.index >=pd.Timestamp('2023-03-01'))]
         total_precip_acc = data_winter_new['rain_mm'].sum()
-        
+        total_precip_acc /= data_new.index.year[-1] - data_new.index.year[0] + 1
         iT = len(data_winter_new)
         # Calculate the number of rainy days (rainy_day == 1) in the filtered data
         rainy_days_count = data_winter_new['rainy_day'].sum()
@@ -160,6 +161,8 @@ for (i, file_name) in enumerate(df.file_name):
         # Calculate the number of rainy days (rainy_day == 1) in the filtered data
         rainy_days_count = filtered_data['rainy_day'].sum()
         nao_upper_quintile_acc = filtered_data['rain_mm'].sum()
+        nao_upper_quintile_acc /= data_new.index.year[-1] - data_new.index.year[0] + 1
+
         # Calculate the percentage of rainy days
         if total_filtered > 0:
             percentage_rainy_days_upperquintile = (rainy_days_count / total_filtered) * 100
@@ -183,6 +186,7 @@ for (i, file_name) in enumerate(df.file_name):
         else:
             percentage_rainy_days_NAOplus = 0
         nao_pos_acc = filtered_data['rain_mm'].sum()
+        nao_pos_acc /= data_new.index.year[-1] - data_new.index.year[0] + 1
 
         # Identify streaks of consecutive ones in the 'Temp' column
         data_winter_new.loc[:, 'streak'] = (data_winter_new['rainy_day'] != data_winter_new['rainy_day'].shift()).cumsum()
@@ -199,8 +203,8 @@ for (i, file_name) in enumerate(df.file_name):
         pass 
 
 df_results_fig1 = df_results.dropna().set_index('STANAME')
-#df_results = df_results.drop(['IZANA','ELAT', 'ELAT-1', 'STA. CRUZ DE TENERIFE', 'TENERIFE/LOS RODEOS'],axis=0)
-#df_results.to_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_precipitation_' + str(start_date) + 'Fig1_dec.csv')
+#df_results_fig1 = df_results_fig1.drop(['IZANA','ELAT', 'ELAT-1', 'STA. CRUZ DE TENERIFE', 'TENERIFE/LOS RODEOS'],axis=0)
+#df_results_fig1.to_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_precipitation_' + str(start_date) + 'Fig1_dec_1950_2020.csv')
 
 
 ##### DATA FOR FIG 4A
@@ -210,6 +214,9 @@ end_year_old = start_date + 30
 start_year_new = 1990
 end_year_new = start_year_new + 30
 drop_na_larger_than = 0.05
+alpha = 0.05
+z_score = norm.ppf(1 - alpha / 2)
+pattern = 'AMO'
 
 folder_path = '../data_persistence/ECA_blend_rr/'
 lendata = len(np.sort(os.listdir(folder_path))[:-4])
@@ -224,9 +231,8 @@ for (i, file_name) in enumerate(np.sort(os.listdir(folder_path))[1:-4]):
 
 df = lat_long.dropna()  
 df.columns =  ['file_name', 'STAID', 'latitude', 'longitude', 'city_name']
-df_results = pd.DataFrame(np.zeros((len(df), 12)), columns=['STANAME', 'STAID', 'latitude', 'longitude', 
-                                                            'mean_diff_winter', 'mean_diff_spring', 'mean_diff_summer', 'mean_diff_autumn',
-                                                            'mean_diff_winter_unc', 'mean_diff_spring_unc', 'mean_diff_summer_unc', 'mean_diff_autumn_unc'])
+df_results = pd.DataFrame(np.zeros((len(df), 6)), columns=['STANAME', 'STAID', 'latitude', 'longitude', 
+                                                            'mean_diff_winter', 'hit'])
 df_results[:] = np.nan
 for (i, file_name) in enumerate(df.file_name):
     print(f'\rCurrently calculating station {i+1} out of {len(df.file_name)}', end='')
@@ -234,8 +240,7 @@ for (i, file_name) in enumerate(df.file_name):
     try:
         test = QAR_precipitation(sFile=file_name, dropna=drop_na_larger_than,
                        oldend = str(end_year_old) + '-', oldstart=str(start_year_old) + '-', 
-                       newend = str(end_year_new) + '-', newstart=str(start_year_new) + '-', include_nao=True
-                      )
+                       newend = str(end_year_new) + '-', newstart=str(start_year_new) + '-', include_nao=True, pattern = pattern)
         test.prepare_data()  
         # Generate example binary time series data for test.old
         y_prec_old = (test.old.Temp >= 5) * 1
@@ -253,19 +258,41 @@ for (i, file_name) in enumerate(df.file_name):
         
         
         data_winter_new, data_winter_old = data_new.loc[data_new.season == 'winter'],  data_old.loc[data_old.season == 'winter']
-        p_rain_cond_nao_new_winter = data_winter_new.loc[data_winter_new.nao_index_cdas.shift(1) > np.quantile(data_winter_new.nao_index_cdas, .8)].mean().Temp
-        p_rain_cond_nao_old_winter = data_winter_old.loc[data_winter_old.nao_index_cdas.shift(1) > np.quantile(data_winter_old.nao_index_cdas, .8)].mean().Temp
-        diff_winter_unc = p_rain_cond_nao_new_winter - p_rain_cond_nao_old_winter
+        if test.pattern == 'NAO':
+            mask_winter_new = data_winter_new.nao_index_cdas.shift(1) > np.quantile(data_winter_new.nao_index_cdas, .8)
+            mask_winter_old = data_winter_old.nao_index_cdas.shift(1) > np.quantile(data_winter_old.nao_index_cdas, .8)
+        elif test.pattern == 'SCAND':
+            mask_winter_new = data_winter_new.nao_index_cdas.shift(1) < np.quantile(data_winter_new.nao_index_cdas, .2)
+            mask_winter_old = data_winter_old.nao_index_cdas.shift(1) < np.quantile(data_winter_old.nao_index_cdas, .2)
+        elif test.pattern == 'AMO':
+            mask_winter_new = data_winter_new.nao_index_cdas.shift(1) > np.quantile(data_winter_new.nao_index_cdas, .8)
+            mask_winter_old = data_winter_old.nao_index_cdas.shift(1) > np.quantile(data_winter_old.nao_index_cdas, .8)
+        subset_old = data_winter_old.loc[mask_winter_old]
+        subset_new = data_winter_new.loc[mask_winter_new]
 
+        p_rain_cond_nao_new_winter = subset_new.Temp.mean()
+        p_rain_cond_nao_old_winter = subset_old.Temp.mean()
+        diff_winter_unc = p_rain_cond_nao_new_winter - p_rain_cond_nao_old_winter
         
+        std_temp_old, n_old = subset_old.Temp.std(), subset_old.shape[0]
+        se_old = std_temp_old / np.sqrt(n_old) if n_old > 0 else 0
+        ci_low_old = p_rain_cond_nao_old_winter - z_score * se_old
+        ci_high_old = p_rain_cond_nao_old_winter + z_score * se_old
+
+        std_temp_new, n_new = subset_new.Temp.std(), subset_new.shape[0]
+        se_new = std_temp_new / np.sqrt(n_new) if n_new > 0 else 0
+        ci_low_new = p_rain_cond_nao_new_winter - z_score * se_new
+        ci_high_new = p_rain_cond_nao_new_winter + z_score * se_new
+        no_overlap = (ci_high_old < ci_low_new) or (ci_high_new < ci_low_old)
+
         df_results.iloc[i, :] = [df.city_name.iloc[i], df.STAID.iloc[i], df.latitude.iloc[i], df.longitude.iloc[i], \
-                                 diff_winter_unc]
+                                 diff_winter_unc, no_overlap]
     except (ValueError, np.linalg.LinAlgError, PerfectSeparationError) as e: 
         pass 
 
 df_results_4a = df_results.dropna().set_index('STANAME')
 #df_results_4a = df_results_4a.drop(['IZANA','ELAT', 'ELAT-1', 'STA. CRUZ DE TENERIFE', 'TENERIFE/LOS RODEOS'],axis=0)
-#df_results_4a.to_csv('../data_persistence/results_precipitation_' + str(start_date) + 'WithUncProbabilities.csv')
+#df_results_4a.to_csv('../data_persistence/results_precipitation_' + str(start_date) + 'WithUncProbabilities_hits_AMO_high.csv')
 
 
 
@@ -273,7 +300,7 @@ df_results_4a = df_results.dropna().set_index('STANAME')
 
 start_year_old = 1950
 end_year_old = 1980
-start_year_new = 1990
+start_year_new = 1950
 end_year_new = 2020 
 drop_na_larger_than = 0.05
 

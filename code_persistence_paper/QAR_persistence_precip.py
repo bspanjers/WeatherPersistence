@@ -27,7 +27,7 @@ class QAR_precipitation:
                  newstart='1990-',  newend='2020-', mid=False, 
                  split_nao=False, include_nao=False, power_pers_nao='linear', positive_is_one=True,
                  num_terms_level=2, num_terms_pers=2, use_statsmodels=True,
-                 path='../data_persistence/ECA_blend_rr/'):
+                 path='../data_persistence/ECA_blend_rr/', pattern='NAO'):
         self.sCity = sCity
         self.dropna = dropna
         self.sFile = sFile
@@ -45,10 +45,17 @@ class QAR_precipitation:
         self.positive_is_one = positive_is_one
         self.mid = mid
         self.include_nao = include_nao
-
+        self.pattern = pattern
         
     def prepare_data(self):
-        nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
+        if self.pattern == 'NAO':
+            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
+        elif self.pattern == 'SCAND':
+            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/scand_index.csv')
+        elif self.pattern == 'AMO':
+            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/amo_daily.csv')
+
+        
         nao_index['date'] = pd.to_datetime(nao_index[['year', 'month', 'day']])
         nao_index.set_index('date', inplace=True)
         nao_index.drop(columns=['year', 'month', 'day'], inplace=True)        

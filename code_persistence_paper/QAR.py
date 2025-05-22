@@ -27,7 +27,7 @@ class QAR_temperature:
                  Kelvin=False, mid=False, 
                  split_nao=False, include_nao=False, iLeafs=1, power_pers_nao='linear', positive_is_one=True,
                  num_terms_level=2, num_terms_pers=2, use_statsmodels=True,
-                 path='/Users/admin/Documents/PhD/persistence/data_persistence/ECA_blend_tg/'):
+                 path='/Users/admin/Documents/PhD/persistence/data_persistence/ECA_blend_tg/', pattern='NAO'):
         self.Kelvin = Kelvin
         self.sCity = sCity
         self.dropna = dropna
@@ -52,11 +52,16 @@ class QAR_temperature:
         self.positive_is_one = positive_is_one
         self.mid = mid
         self.include_nao = include_nao
-
-
+        self.pattern = pattern
         
     def prepare_data(self):
-        nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
+        if self.pattern == 'NAO':
+            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
+        elif self.pattern == 'SCAND':
+            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/scand_index.csv')
+        elif self.pattern == 'AMO':
+            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/amo_daily.csv')
+
         nao_index['date'] = pd.to_datetime(nao_index[['year', 'month', 'day']])
         nao_index.set_index('date', inplace=True)
         nao_index.drop(columns=['year', 'month', 'day'], inplace=True)        
@@ -150,8 +155,24 @@ class QAR_temperature:
 
         
     def create_fourier_terms(self, dates, num_terms, prefix):
-        t = ((dates - dates.min()) / pd.Timedelta(1, 'D')).astype(int) + dates.dayofyear[0] - 1
-
+        # Get all unique years in vY
+        unique_years = sorted(dates.year.unique())
+        
+        # Dictionary to store adjusted day-of-year mappings
+        doy_mapping = {}
+        
+        # Iterate over each year to build a correct DOY mapping
+        for year in unique_years:
+            # Generate a full-year date range excluding February 29
+            full_year = pd.date_range(start=f"{year}-01-01", end=f"{year}-12-31", freq='D')
+            full_year = full_year[~((full_year.month == 2) & (full_year.day == 29))]  # Remove leap day
+        
+            # Create a mapping from date to "day of the year"
+            doy_mapping.update({date: i+1 for i, date in enumerate(full_year)})
+        
+        # Apply the mapping to vY
+        t = dates.map(doy_mapping)        
+        
         #t = (dates - dates.min()) / pd.Timedelta(1, 'D') + dates.dayofyear[0] - 1
         fourier_terms = pd.DataFrame(np.ones(len(dates)))
         fourier_terms.columns = [prefix + 'const']
@@ -169,7 +190,7 @@ class QAR_temperature:
         
         if self.split_nao == True:
             #define nao states
-            df_leafs = self.dfleafs.loc[(self.dfleafs.index<=df.index[-1]) & (self.dfleafs.index>=df.index[0])]
+            df_leafs = self.dfleafs.loc[(self.dfleafs.index <= df.index[-1]) & (self.dfleafs.index >= df.index[0])]
             df_leafs = df_leafs.loc[df_leafs.index.isin(df.index)]
             self.df_leafs = df_leafs
             
@@ -201,8 +222,9 @@ class QAR_temperature:
             df[fourier_terms_constant.columns] = fourier_terms_constant.values
             
             #persistence variables
-            fourier_terms_pers = self.create_fourier_terms(index, self.num_terms_pers, prefix='pers_')
-            df[fourier_terms_pers.columns] = fourier_terms_pers.values * pd.concat([df.loc[:,'Temp']] * fourier_terms_pers.shape[1], axis=1).values
+            if self.num_terms_pers >=1: 
+                fourier_terms_pers = self.create_fourier_terms(index, self.num_terms_pers, prefix='pers_')
+                df[fourier_terms_pers.columns] = fourier_terms_pers.values * pd.concat([df.loc[:,'Temp']] * fourier_terms_pers.shape[1], axis=1).values
             #df.insert(loc=0, column='Trend', value=0)
             df.insert(loc=0, column='Trend', value=np.linspace(index.year[0], index.year[-1], len(df)) - index.year[0])
             if self.include_nao == True:    
@@ -283,10 +305,10 @@ class QAR_temperature:
         df = pd.DataFrame(0, index=dates, columns=['Value'])
         return df
     
-    def results(self, mid=False):
+    def results(self, alpha=0.05):
         if type(self.old) == type(None):
             self.prepare_data()
-        num_params_pers = self.num_terms_pers * 2 + 1
+        num_params_pers, num_params_const = self.num_terms_pers * 2 + 1, self.num_terms_level * 2 + 1
 
         ### OLD RESULTS ###
         vY_old = self.old.iloc[1:,:1].reset_index(drop=True)
@@ -303,45 +325,88 @@ class QAR_temperature:
         results = resultnew, resultold
         self.mX_new, self.mX_old = mX_new, mX_old
         self.oldfitted = resultold.fittedvalues
-        self.newfitted = resultnew.fittedvalues
-        #self.mX_new = mX_new
-        #self.mX_old = mX_old
-        
-        if mid == True:
-            vY_mid = self.mid[1:].reset_index(drop=True)
-            mX_mid = self.makeX_uni(self.mid).reset_index(drop=True)
-            modelmid = sm.QuantReg(vY_mid, mX_mid)
-            resultmid = modelmid.fit(q=self.fTau, vcov='robust', max_iter=5000)
-            results = resultnew, resultold, resultmid
-            self.midfitted = resultmid.fittedvalues
-        
+        self.newfitted = resultnew.fittedvalues        
+
         self.vThetanew = resultnew.params.values
         self.vThetaold = resultold.params.values
         df_old, df_new = self.create_year_df(self.old.index.year[-1]), self.create_year_df(self.new.index.year[-1])
-        self.mCurves_old = self.vThetaold[-num_params_pers:] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
-        self.mCurves_new = self.vThetanew[-num_params_pers:] @ self.create_fourier_terms(df_new.index, self.num_terms_pers, 'pers_').T          
-        self.mCurves_old.index = df_new.index
-        self.mCurves_new.index = df_new.index
+        
+        if self.split_nao == False:
+            self.mCurves_old = self.vThetaold[-num_params_pers:] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
+            self.mCurves_new = self.vThetanew[-num_params_pers:] @ self.create_fourier_terms(df_new.index, self.num_terms_pers, 'pers_').T          
+            self.mCurves_old.index = df_new.index
+            self.mCurves_new.index = df_new.index
+            self.DiffCurves = self.mCurves_new - self.mCurves_old
+            cov_new, cov_old = resultnew.cov_params().iloc[-num_params_pers:, -num_params_pers:], resultold.cov_params().iloc[-num_params_pers:, -num_params_pers:]
+            fourier_terms = self.create_fourier_terms(self.old.index, self.num_terms_pers, 'pers_')
+            if self.num_terms_pers > 0:
+                std_combined = np.sqrt(np.diag(fourier_terms @ (cov_old + cov_new) @ fourier_terms.T))
+                winter_days = np.where(self.DiffCurves.index.month.isin([12,1,2,3,4,5,6,7,8,9,10,11]))
+                std_combined_sup = np.max(std_combined[winter_days]) 
+    
+                self.lower_combined = self.DiffCurves - stats.norm.ppf(1-alpha/2) * std_combined_sup
+                self.upper_combined = self.DiffCurves + stats.norm.ppf(1-alpha/2) * std_combined_sup
+                 
         if self.split_nao == True:
-            self.curve_old_plus = self.vThetaold[-2*num_params_pers:-num_params_pers] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
-            self.curve_old_min = self.vThetaold[-num_params_pers:] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
-            self.curve_new_plus = self.vThetanew[-2*num_params_pers:-num_params_pers] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
-            self.curve_new_min = self.vThetanew[-num_params_pers:] @ self.create_fourier_terms(df_new.index, self.num_terms_pers, 'pers_').T          
+            self.curve_old_min = self.vThetaold[num_params_const+2:num_params_const+2+num_params_pers] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
+            self.curve_old_plus = self.vThetaold[-num_params_pers:] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
+            self.curve_new_min = self.vThetanew[num_params_const+2:num_params_const+2+num_params_pers] @ self.create_fourier_terms(df_old.index, self.num_terms_pers, 'pers_').T
+            self.curve_new_plus = self.vThetanew[-num_params_pers:] @ self.create_fourier_terms(df_new.index, self.num_terms_pers, 'pers_').T          
             self.curve_old_plus.index = df_new.index
             self.curve_new_plus.index = df_new.index
             self.curve_old_min.index = df_new.index
             self.curve_new_min.index = df_new.index
+            
+            # Combine old curves
+            self.mCurves_old = pd.concat(
+                [
+                    pd.Series(self.curve_old_min, name="old"),
+                    pd.Series(self.curve_old_plus, name="new")
+                ],
+                axis=1
+            )
+            
+            # Combine new curves
+            self.mCurves_new = pd.concat(
+                [
+                    pd.Series(self.curve_new_min, name="old"),
+                    pd.Series(self.curve_new_plus, name="new")
+                ],
+                axis=1
+            )
+            cov_new_plus, cov_old_plus = resultnew.cov_params().iloc[-num_params_pers:, -num_params_pers:], resultold.cov_params().iloc[-num_params_pers:, -num_params_pers:]
+            cov_new_min = resultnew.cov_params().iloc[num_params_const+2:num_params_const+2+num_params_pers, num_params_const+2: num_params_const+2+num_params_pers]
+            cov_old_min = resultold.cov_params().iloc[num_params_const+2:num_params_const+2+num_params_pers, num_params_const+2:num_params_const+2+num_params_pers]
+            cov_combined_min, cov_combined_plus = cov_new_min + cov_old_min, cov_new_plus + cov_old_plus
+            fourier_terms = self.create_fourier_terms(self.old.index, self.num_terms_pers, 'pers_')
+            std_combined_min = np.sqrt(np.diag(fourier_terms.values @ cov_combined_min.values @ fourier_terms.T.values))
+            std_combined_plus = np.sqrt(np.diag(fourier_terms.values @ cov_combined_plus.values @ fourier_terms.T.values))
+            winter_days = np.where(self.curve_new_min.index.month.isin([12,1,2,3,4,5,6,7,8,9,10,11]))
+            std_combined_min_sup = np.max(std_combined_min[winter_days]) 
+            std_combine_plus_sup = np.max(std_combined_plus[winter_days]) 
+            self.DiffCurves_min = self.curve_new_min - self.curve_old_min
+            self.DiffCurves_plus = self.curve_new_plus - self.curve_old_plus
+            #self.lower_combined_min = self.DiffCurves_min - stats.norm.ppf(1 - alpha / 2) * std_combined_min[-365:]
+            self.lower_combined_min = self.DiffCurves_min - stats.norm.ppf(1-alpha/2) * std_combined_min_sup
+            self.lower_combined_plus = self.DiffCurves_plus - stats.norm.ppf(1-alpha/2) * std_combine_plus_sup
+            self.upper_combined_plus = self.DiffCurves_plus + stats.norm.ppf(1-alpha/2) * std_combine_plus_sup
+            self.upper_combined_min = self.DiffCurves_min + stats.norm.ppf(1-alpha/2) * std_combined_min_sup
+            self.lower_combined = pd.concat(
+                [self.lower_combined_min.rename("0"), self.lower_combined_plus.rename("1")],
+                axis=1
+                )
+        
+            self.upper_combined = pd.concat(
+                [self.upper_combined_min.rename("0"), self.upper_combined_plus.rename("1")],
+                axis=1
+                    )
         return results
     
-    def make_plots(self, mid=False, alpha=.1):
+    def make_plots(self, alpha=.1):
         iPers = 2 * self.num_terms_pers + 1
         if self.use_statsmodels == True:
-            if mid == False:
-                resultnew, resultold = self.results()
-            else:
-                 resultnew, resultold, resultmid = self.results(mid)
-                 coef_mid = resultmid.params.values[-iPers:]
-                 conf_int_mid = resultmid.conf_int(alpha=alpha).values[-iPers:]
+            resultnew, resultold = self.results()
+
             
             # Extract coefficients and confidence intervals from the summary table        
             coef_new = resultnew.params.values[-iPers:]
@@ -366,14 +431,6 @@ class QAR_temperature:
         # Plot point estimates
         ax.plot(coef_new, marker='o', color='red', linestyle='', label='New Estimates: ' + str(self.new.index.year[0]) + '-' + str(self.new.index.year[-1]))
         
-
-        if mid == True:
-            # Plot point estimates
-            ax.plot(np.arange(num_coefs) + 0.4, coef_mid, marker='o', color='black', linestyle='', label='Mid Estimates')
-            
-            # Plot confidence intervals for the mid result
-            for i in range(num_coefs):
-                ax.plot([i + 0.4, i + 0.4], conf_int_mid[i], color='black', linewidth=2)
         # Plot point estimates
         ax.plot(np.arange(num_coefs) + 0.2, coef_old, marker='o', color='orange', linestyle='', label='Old Estimates: ' + str(self.old.index.year[0]) + '-' + str(self.old.index.year[-1]))
         
@@ -482,14 +539,18 @@ class QAR_temperature:
         num_params_pers = self.num_terms_pers * 2 + 1
         
         # Create a single figure and subplots
-        fig, axs = plt.subplots(2, 2, figsize=(12, 6), dpi=300)
+        fig, axs = plt.subplots(2, 2, figsize=(12, 6), dpi=300, facecolor='white')
         fig.subplots_adjust(hspace=0.15)
         self.plot_all_phi_coefs(plot=False)
         ax = axs[0,0]
         ax.plot(self.mCurves_new, label=['$\\tau$=' + str(round(tau, 2)) for tau in self.vQuantiles])
         ax.set_ylabel('Persistence coefficient $\\phi(\\tau)$')
         ax.set_title('(' + chr(97 + 0) + ') $\phi(\\tau)$ for varying $\\tau$ (new data)')
-        ax.legend(fontsize='small')
+        ax.legend(
+            loc='lower center',             # place at the bottom center
+            ncol=5,                         # number of columns (adjust to your number of items)
+            fontsize='small',
+        )        
         ax.grid(True)
         ax.xaxis.set_major_locator(MonthLocator())
         ax.xaxis.set_major_formatter(DateFormatter('%b'))
@@ -1043,7 +1104,7 @@ class QAR_temperature:
         vTheta_pers, vTheta_const = vTheta[-num_params_pers:], vTheta[:num_params_pers+2]
         cov = results.cov_params().loc[selected_columns, selected_columns]
         cov_pers = cov.iloc[-num_params_pers:, -num_params_pers:]
-        cov_const = cov.iloc[:num_params_const + 2, :num_params_const + 2]
+        cov_const = cov.iloc[:num_params_const+2, :num_params_const+2]
         
         fourier_terms_pers = self.create_fourier_terms(dfindex, self.num_terms_pers, sSetting)
         std_pers = np.sqrt(np.diag(fourier_terms_pers.values @ cov_pers.values @ fourier_terms_pers.values.T))   
@@ -1085,7 +1146,7 @@ class QAR_temperature:
                 axs = axs.flatten()  # Flatten the grid for easy indexing
             else:
                 
-                fig, axs = plt.subplots(1, self.iLeafs, figsize=(17,4), dpi=100)
+                fig, axs = plt.subplots(1, self.iLeafs, figsize=(17,4), dpi=100, facecolor='white')
                 if self.iLeafs == 1:
                     axs = [axs]  # Ensure axs is a list for consistency
                     
@@ -1108,8 +1169,14 @@ class QAR_temperature:
                     if self.iLeafs > 2:
                         add = 'Leaf ' + str(leaf+1)
                     else: 
-                        add = 'Negative' if leaf==0 else 'Positive'
-                    ax.set_title('(' + str(chr(97 + leaf + 0)) + ')' )
+                        add = '-' if leaf==0 else '+'
+                    if self.fTau==0.5:
+                        row = 2
+                    elif self.fTau == 0.95:
+                        row = 4
+                    else:
+                        row = 0
+                    ax.set_title('(' + str(chr(97 + leaf + row)) + ') NAO' + add + ' with $\\tau=$' + str(self.fTau))
                     ax.plot(curve_new, label='New $\\phi(\\tau)$ path', color='red')
                     ax.plot(curve_old, label='Old $\\phi(\\tau)$ path', color='orange')
                     ax.set_ylabel('$\\phi(\\tau)$')

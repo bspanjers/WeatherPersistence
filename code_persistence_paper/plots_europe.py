@@ -31,18 +31,31 @@ def analyze_nao_precipitation():
     - None (Displays plots)
     """
     # Define the path to your dataset
-    data_path = '../data_persistence/results_precipitation_2023Fig1_dec.csv' 
+    data_path_2023 = '../data_persistence/results_precipitation_2023Fig1_dec.csv' 
+    data_path_1950_2020 = '../data_persistence/results_precipitation_1950Fig1_dec_1950_2020.csv'
     start = '2023-11-30'
     end = '2024-01-04'
-    storm_event = '2024-01-02'
+    storm_event = pd.Timestamp('2024-01-02')
     
     # Load precipitation data
-    df_results = pd.read_csv(data_path)
-    df_results = df_results.dropna().set_index('STANAME')
+    df_results_2023 = pd.read_csv(data_path_2023)
+    df_results_2023 = df_results_2023.dropna().set_index('STANAME')
+    df_results_1950_2020 = pd.read_csv(data_path_1950_2020)
+    df_results_1950_2020 = df_results_1950_2020.dropna().set_index('STANAME')
+    # Ensure common stations only and consistent row order
+    common_index = df_results_2023.index.intersection(df_results_1950_2020.index)
+    
+    df_results_2023 = df_results_2023.loc[common_index].sort_index()
+    df_results_1950_2020 = df_results_1950_2020.loc[common_index].sort_index()
+    df_results_2023 = df_results_2023[~df_results_2023.index.duplicated()]
+    df_results_1950_2020 = df_results_1950_2020[~df_results_1950_2020.index.duplicated()]
+    # Compute the difference
+    df_results_diff = df_results_2023.copy()
+    df_results_diff.iloc[:, 4:] = df_results_2023.iloc[:, 4:].values - df_results_1950_2020.iloc[:, 4:].values
 
     # Convert latitude and longitude from DMS to decimal format
-    latitude = df_results['latitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1]) / 60 + float(x.split(':')[2]) / 3600)
-    longitude = df_results['longitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1]) / 60 + float(x.split(':')[2]) / 3600)
+    latitude = df_results_diff['latitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1]) / 60 + float(x.split(':')[2]) / 3600)
+    longitude = df_results_diff['longitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1]) / 60 + float(x.split(':')[2]) / 3600)
 
     # Initialize figure with a gridspec layout
     fig = plt.figure(figsize=(14, 11), dpi=200, facecolor="white")
@@ -57,8 +70,8 @@ def analyze_nao_precipitation():
     ax1 = fig.add_subplot(gs[0, 0])
     oldwinter = oldwinter.dropna().astype(float)
     newwinter = newwinter.dropna().astype(float)
-    sns.kdeplot(oldwinter.squeeze(), color='orange', fill=True, alpha=0.5, linewidth=2, label='Winter 1950-1980', ax=ax1)
-    sns.kdeplot(newwinter.squeeze(), color='red', fill=True, alpha=0.5, linewidth=2, label='Winter 1990-2020', ax=ax1)
+    sns.kdeplot(oldwinter.squeeze(), color='orange',  linewidth=2, label='Winter 1950-1980', ax=ax1)
+    sns.kdeplot(newwinter.squeeze(), color='red', linewidth=2, label='Winter 1990-2020', ax=ax1)
     ax1.axvline(x=0.693091150856237, color='black', linestyle='--', linewidth=1, label='Mean of NAO index Dec 2023')
     ax1.set_xlabel('NAO Index', fontsize=10)
     ax1.set_ylabel('Density', fontsize=10)
@@ -80,15 +93,15 @@ def analyze_nao_precipitation():
 
     # Panel 3: Heatmap for percentage_rainy_days_total
     ax3 = fig.add_subplot(gs[1, 0])
-    sc3 = plot_heatmap(df_results, latitude, longitude, ax3, 'percentage_rainy_days_total', '(c)')
+    sc3 = plot_heatmap(df_results_diff, latitude, longitude, ax3, 'percentage_rainy_days_total', '(c)')
     cbar3 = fig.colorbar(sc3, ax=ax3, orientation='vertical', shrink=0.85)
-    cbar3.set_label('Percentage Rainy Days')
+    cbar3.set_label('Absolute Difference in Percentage Rainy Days')
 
     # Panel 4: Heatmap for total_precip_acc
     ax4 = fig.add_subplot(gs[1, 1])
-    sc4 = plot_heatmap(df_results, latitude, longitude, ax4, 'total_precip_acc', '(d)')
+    sc4 = plot_heatmap(df_results_diff, latitude, longitude, ax4, 'total_precip_acc', '(d)')
     cbar4 = fig.colorbar(sc4, ax=ax4, orientation='vertical', shrink=0.85)
-    cbar4.set_label('Accumulated Precipitation (mm)')
+    cbar4.set_label('Absolute Difference in Accumulated Precipitation (mm)')
 
     plt.tight_layout()
     plt.show()
@@ -175,11 +188,11 @@ def plot_heatmap(df_results, latitude, longitude, ax, sType, title):
 
     # Define color scale and data for different sTypes
     if sType == 'percentage_rainy_days_total':
-        vmin, vcenter, vmax = 0, 50, 100
+        vmin, vcenter, vmax = -20, 5, 30
         data = df_results[sType]
     elif sType == 'total_precip_acc':
-        vmin, vcenter, vmax = 0, 100, 200
-        data = df_results[sType] / 10
+        vmin, vcenter, vmax = -500, 400, 1000
+        data = df_results[sType] 
     else:
         raise ValueError(f"Unknown sType: {sType}")
 
@@ -208,8 +221,8 @@ def plot_heatmap(df_results, latitude, longitude, ax, sType, title):
     meridians = np.arange(-20, 41, 10)  # Adjust range and interval as needed
 
     # Draw parallels and meridians
-    m.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0)  # Labels on the left
-    m.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0)  # Labels on the bottom
+    m.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0.0001)  # Labels on the left
+    m.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0.0001)  # Labels on the bottom
 
     # Set title
     ax.set_title(title, fontsize=12)
@@ -373,8 +386,8 @@ def plot_binomial_probabilities(total_days=21, p1=0.6518518518518519, p2=0.55555
     plt.tight_layout()
     plt.show()
 
-def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'], tau_list=[0.05, .5, .95]):
-    fig, axs = plt.subplots(3, 3, figsize=(15, 17), dpi=300, sharey=True, sharex=False, facecolor="white")
+def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'], tau_list=[0.05, .5, .95], bSignificance=False, pattern='NAO'):
+    fig, axs = plt.subplots(3, 3, figsize=(15, 17), dpi=100, sharey=True, sharex=False, facecolor='white')
     fig.subplots_adjust(hspace=0.1, wspace=0.01)
     
     scatter_plots = []
@@ -382,7 +395,10 @@ def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'],
     # First loop for the first row (NAO-)
     for i, (df_results, sType, tau) in enumerate(zip(df_results_list[:3], l_sType, tau_list)):
         ax = axs[0, i]
-        
+        if bSignificance:
+            df_plot = df_results[df_results['hit']]
+        else:
+            df_plot = df_results
         # Create a Basemap of Europe
         m = Basemap(projection='merc', llcrnrlat=30, urcrnrlat=75, llcrnrlon=-20, urcrnrlon=59, resolution='c', ax=ax)
 
@@ -391,8 +407,8 @@ def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'],
         m.drawcountries()
 
         # Convert latitudes and longitudes to x, y coordinates
-        latitude = df_results['latitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
-        longitude = df_results['longitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
+        latitude = df_plot['latitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
+        longitude = df_plot['longitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
         x, y = m(list(longitude), list(latitude))
 
         # Define colormap and normalization
@@ -402,9 +418,9 @@ def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'],
 
         # Plot scattered dots
         if sType == 'pers_':
-            sc = m.scatter(x, y, c=df_results[f'mean_diff_pers_{sSeason}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=0.7)
+            sc = m.scatter(x, y, c=df_plot[f'mean_diff_pers_{sSeason}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=.7)
         else: 
-            sc = m.scatter(x, y, c=df_results[f'mean_diff_{sSeason}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=0.7)
+            sc = m.scatter(x, y, c=df_plot[f'mean_diff_{sSeason}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=.7)
 
         scatter_plots.append(sc)
 
@@ -416,13 +432,17 @@ def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'],
         #m.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0)  # labels on the bottom
         if i == 0:
             parallels = np.arange(30, 81, 10)
-            m.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0)  # labels on the left
+            m.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0.01)  # labels on the left
 
     # Second loop for the second and third rows (NAO+)
     for i, (df_results, sType, tau) in enumerate(zip(df_results_list[3:], l_sType, tau_list)):
         for j, pm in enumerate(['0', '1']):
             ax = axs[j+1, i]
-            
+            if bSignificance:
+                hit_col = f"hit{pm}"
+                df_plot = df_results[df_results[hit_col].astype(bool)].copy()
+            else:
+                df_plot = df_results.copy()
             # Create a Basemap of Europe
             m = Basemap(projection='merc', llcrnrlat=30, urcrnrlat=75, llcrnrlon=-20, urcrnrlon=59, resolution='c', ax=ax)
 
@@ -431,8 +451,8 @@ def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'],
             m.drawcountries()
 
             # Convert latitudes and longitudes to x, y coordinates
-            latitude = df_results['latitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
-            longitude = df_results['longitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
+            latitude = df_plot['latitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
+            longitude = df_plot['longitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1])/60 + float(x.split(':')[2])/3600)
             x, y = m(list(longitude), list(latitude))
 
             # Define colormap and normalization
@@ -442,30 +462,31 @@ def plot_combined(df_results_list, sSeason, l_sType=['pers_', 'pers_', 'pers_'],
 
             # Plot scattered dots
             if sType == 'pers_':
-                sc = m.scatter(x, y, c=df_results[f'mean_diff_pers_{sSeason}_{pm}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=0.7)
+                sc = m.scatter(x, y, c=df_plot[f'mean_diff_pers_{sSeason}_{pm}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=.7)
             else: 
-                sc = m.scatter(x, y, c=df_results[f'mean_diff_{sSeason}_{pm}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=0.7)
+                sc = m.scatter(x, y, c=df_plot[f'mean_diff_{sSeason}_{pm}'], cmap=cmap, norm=norm, s=100, marker='o', alpha=.7)
 
             scatter_plots.append(sc)
 
             # Add title with subplot numbering
             sign = '+' if pm==str(1) else '-'
-            ax.set_title(f'({chr(97 + 3 + 3*j + i)})' + ' $\\overline{\\Delta}_{\\psi_s}(\\tau)$ with $s=$NAO' + sign + f' and $\\tau$ = {tau}', fontsize=12)
+            
+            ax.set_title(f'({chr(97 + 3 + 3*j + i)})' + ' $\\overline{\\Delta}_{\\psi_s}(\\tau)$ with $s=$' + pattern + sign + f' and $\\tau$ = {tau}', fontsize=12)
 
             # Add lat and long labels without gridlines
             if j == 1:
                 meridians = np.arange(-20, 61, 20)
-                m.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0)  # labels on the bottom
+                m.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0.01)  # labels on the bottom
             if i == 0:
                 parallels = np.arange(30, 81, 10)
-                m.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0)  # labels on the left
+                m.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0.01)  # labels on the left
 
     # Create a single colorbar horizontally at the bottom of the plots
     cbar_ax = fig.add_axes([0.2, 0.075, 0.6, 0.02])  # [left, bottom, width, height]
     cbar = fig.colorbar(scatter_plots[0], cax=cbar_ax, orientation='horizontal')
     plt.show()
     
-def plot_combined_heatmaps(df1, df2, sType1, title1, sSeason, sType2, title2):
+def plot_combined_heatmaps(df1, df2, sType1, title1, sSeason, sType2, title2, sign=False):
     """
     Generate a combined heatmap with two horizontally aligned subplots, with the positions swapped.
 
@@ -487,12 +508,13 @@ def plot_combined_heatmaps(df1, df2, sType1, title1, sSeason, sType2, title2):
         except KeyError:
             pass
         return df
-
+    
     # Preprocess DataFrames
     drop_stations = ['IZANA', 'ELAT', 'ELAT-1', 'STA. CRUZ DE TENERIFE', 'TENERIFE/LOS RODEOS']
     df1 = preprocess_data(df1, drop_stations)  # Data for second heatmap
     df2 = preprocess_data(df2, drop_stations)  # Data for first heatmap
-
+    if sign:
+        df2 = df2.loc[df2.hit==True]
     # Initialize figure with two side-by-side subplots
     fig, axes = plt.subplots(1, 2, figsize=(14, 6), dpi=200, facecolor='white')
 
@@ -513,7 +535,7 @@ def plot_combined_heatmaps(df1, df2, sType1, title1, sSeason, sType2, title2):
     # Plot first heatmap
     cmap1 = plt.cm.RdYlGn_r
     if sType2 != '_unc':
-        vmin1, vcenter1, vmax1 = -0.5, 0, 0.5
+        vmin1, vcenter1, vmax1 = -0.151, 0, 0.151
         data1 = df2['mean_diff_' + sSeason]
     else:
         vmin1, vcenter1, vmax1 = -0.151, 0, 0.151
@@ -523,16 +545,13 @@ def plot_combined_heatmaps(df1, df2, sType1, title1, sSeason, sType2, title2):
 
     # Add parallels and meridians to first subplot
     parallels = np.arange(30, 81, 10)
-    m1.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0)
+    m1.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0.0001)
     meridians = np.arange(-20, 60, 20)
-    m1.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0)
+    m1.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0.0001)
 
     # Add colorbar and title for first subplot
     cbar1 = fig.colorbar(sc1, ax=ax1, orientation='vertical', shrink=0.85, pad=0.02)
-    if sType2 != '_unc':
-        cbar1.set_label('$\Delta_{\\gamma_5}$', fontsize=10)
-    else:
-        cbar1.set_label('$\Delta_{Q_5}$', fontsize=10)
+    cbar1.set_label('$\Delta_{\\gamma_5}$', fontsize=10)
     ax1.set_title('(a) ' + title2, fontsize=14, pad=20)
 
     # Second subplot (swapped: now showing Fig. 1)
@@ -549,8 +568,8 @@ def plot_combined_heatmaps(df1, df2, sType1, title1, sSeason, sType2, title2):
     sc2 = m2.scatter(x2, y2, c=data2, cmap=cmap2, norm=norm2, s=30, marker='o', alpha=1)
 
     # Add parallels and meridians to second subplot
-    m2.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0)
-    m2.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0)
+    m2.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0.0001)
+    m2.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0.0001)
 
     # Add colorbar and title for second subplot
     cbar2 = fig.colorbar(sc2, ax=ax2, orientation='vertical', shrink=0.85, pad=0.02)
@@ -560,6 +579,67 @@ def plot_combined_heatmaps(df1, df2, sType1, title1, sSeason, sType2, title2):
     # Adjust layout and show the plot
     plt.tight_layout()
     plt.show()
+    
+
+
+def plot_single_heatmap(df1, sType, title, sSeason, sign=True):
+    """
+    Plot a single heatmap showing precipitation or persistence data on a Basemap.
+
+    Args:
+        df1: DataFrame with station metadata and values to plot.
+        sType: Column name to use for coloring (e.g., 'precip_percent' or 'mean_diff_winter').
+        title: Title of the plot.
+        sSeason: Season string used to access column names if needed.
+    """
+    # Drop specific stations if present
+    drop_stations = ['IZANA', 'ELAT', 'ELAT-1', 'STA. CRUZ DE TENERIFE', 'TENERIFE/LOS RODEOS']
+    df1 = df1[~df1['STANAME'].isin(drop_stations)]
+    if sign:
+        df1 = df1.loc[df1.hit==True]
+    # Convert lat/lon from D:M:S to decimal
+    latitude = df1['latitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1]) / 60 + float(x.split(':')[2]) / 3600)
+    longitude = df1['longitude'].apply(lambda x: float(x.split(':')[0]) + float(x.split(':')[1]) / 60 + float(x.split(':')[2]) / 3600)
+
+    # Setup figure and Basemap
+    fig, ax = plt.subplots(figsize=(7, 6), dpi=100, facecolor='white')
+    m = Basemap(projection='merc', llcrnrlat=30, urcrnrlat=75, llcrnrlon=-20, urcrnrlon=60, resolution='l', ax=ax)
+    m.drawcoastlines()
+    m.drawcountries()
+
+    # Convert to map coordinates
+    x, y = m(list(longitude), list(latitude))
+
+    # Color map and normalization
+    if sType != '_unc':
+        cmap = plt.cm.RdYlGn_r
+        vmin, vcenter, vmax = -0.151, 0, 0.151
+        norm = TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+        data = df1['mean_diff_' + sSeason] if 'mean_diff_' + sSeason in df1.columns else df1[sType]
+        colorbar_label = '$\Delta_{Q_5}$'
+    else:
+        cmap = plt.cm.YlOrRd
+        norm = TwoSlopeNorm(vmin=0, vcenter=50, vmax=100)
+        data = df1[sType]
+        colorbar_label = 'Fraction of days > 0.5mm precipitation (%)'
+
+    # Scatter plot
+    sc = m.scatter(x, y, c=data, cmap=cmap, norm=norm, s=30, marker='o', alpha=1)
+
+    # Add gridlines
+    parallels = np.arange(30, 81, 10)
+    meridians = np.arange(-20, 60, 20)
+    m.drawparallels(parallels, labels=[1, 0, 0, 0], fontsize=8, linewidth=0.0001)
+    m.drawmeridians(meridians, labels=[0, 0, 0, 1], fontsize=8, linewidth=0.0001)
+
+    # Add colorbar and title
+    cbar = fig.colorbar(sc, ax=ax, orientation='vertical', shrink=0.85, pad=0.02)
+    cbar.set_label(colorbar_label, fontsize=10)
+    ax.set_title(title, fontsize=14, pad=20)
+
+    plt.tight_layout()
+    plt.show()
+
     
 def plot_coefficient_evolution(sCity='DE BILT'):
     """
@@ -647,7 +727,7 @@ def plot_coefficient_evolution(sCity='DE BILT'):
     
     
     
-def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, confidence=0.95):
+def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, confidence=0.95, pattern='NAO'):
     """
     Computes and plots the probability of rain conditioned on NAO index quintiles
     for both past and recent periods.
@@ -663,7 +743,7 @@ def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, 
     """
 
     # Initialize QAR object
-    test = QAR_precipitation(sCity=sCity, fTau=fTau, use_statsmodels=True, include_nao=True)
+    test = QAR_precipitation(sCity=sCity, fTau=fTau, use_statsmodels=True, include_nao=True, pattern=pattern)
     test.prepare_data()
 
     # Winter months
@@ -849,7 +929,93 @@ def analyze_temperature_vs_nao(sCity='DE BILT', quant=0.95, temp=False, fix_old=
         plt.axvline(x=q_high, color='orange', linestyle='dotted', label='97.5th percentile (old)')
     plt.xlabel('Lagged Temperature')
     plt.ylabel('Temperature')
-    plt.legend()
+
+
+def analyze_temperature_vs_nao_combined(test, quant=0.95, temp=False):
+    def get_filtered(data, quant, temp, fix_old, is_new, ref_data=None):
+        shifted = data['Temp'].shift(1) if temp else data['nao_index_cdas']
+        if fix_old:
+            base = ref_data['nao_index_cdas'] if (not temp and is_new and ref_data is not None) else data['Temp'] if temp else data['nao_index_cdas']
+            if quant > 0.5:
+                return data[(shifted >= np.quantile(base, 0.925)) & (shifted <= np.quantile(base, 0.975))] if not temp else \
+                       data[(shifted >= np.quantile(base, quant)) & (shifted <= np.quantile(base, 0.99))]
+            else:
+                return data[(shifted <= np.quantile(base, quant))] if not temp else \
+                       data[(shifted <= np.quantile(base, 0.075)) & (shifted >= np.quantile(base, 0.025))]
+        else:
+            return data[(shifted >= np.quantile(shifted, quant))] if quant > 0.5 else \
+                   data[(shifted <= np.quantile(shifted, quant))]
+
+    test.prepare_data()
+    old_winter = test.old[test.old.index.month.isin([12, 1, 2])].copy()
+    new_winter = test.new[test.new.index.month.isin([12, 1, 2])].copy()
+
+    fig, axs = plt.subplots(2, 2, figsize=(14, 10), dpi=100, facecolor='white')
+
+    for i, fix_old in enumerate([True, False]):
+        # Scatter FIRST (top row left, bottom row left)
+        row = 0 if i == 0 else 1
+        col_scatter = 0
+        col_kde = 1
+
+        old = old_winter.copy()
+        new = new_winter.copy()
+        old['nao_lag1'] = old['nao_index_cdas'].shift(1)
+        new['nao_lag1'] = new['nao_index_cdas'].shift(1)
+
+        if fix_old:
+            # Shared percentile based on old NAO
+            q_low = old['nao_lag1'].quantile(quant - 0.025)
+            q_high = old['nao_lag1'].quantile(quant + 0.025)
+
+            old['alpha'] = np.where((old['nao_lag1'] >= q_low) & (old['nao_lag1'] <= q_high), 1.0, 0.1)
+            new['alpha'] = np.where((new['nao_lag1'] >= q_low) & (new['nao_lag1'] <= q_high), 1.0, 0.1)
+
+        else:
+            # Independent thresholds for old and new
+            q_old = old['nao_lag1'].quantile(quant)
+            q_new = new['nao_lag1'].quantile(quant)
+
+            old['alpha'] = np.where(old['nao_lag1'] >= q_old, 1.0, 0.1)
+            new['alpha'] = np.where(new['nao_lag1'] >= q_new, 1.0, 0.1)
+
+        ax_scatter = axs[row, col_scatter]
+        ax_scatter.scatter(old['nao_lag1'], old['Temp'], c='orange', s=3, alpha=old['alpha'], label='Old')
+        ax_scatter.scatter(new['nao_lag1'], new['Temp'], c='red', s=3, alpha=new['alpha'], label='New')
+        
+        if fix_old:
+            ax_scatter.axvline(x=q_low, color='orange', linestyle='dotted', label='2.5th–97.5th (old)')
+            ax_scatter.axvline(x=q_high, color='orange', linestyle='dotted')
+        else:
+            ax_scatter.axvline(x=q_old, color='orange', linestyle='dotted', label='95th (old)')
+            ax_scatter.axvline(x=q_new, color='red', linestyle='dotted', label='95th (new)')
+        
+        ax_scatter.set_title(f"({chr(97 + i*2)}) Scatter – fix_old={fix_old}")
+        ax_scatter.set_xlabel("Lagged NAO Index")
+        ax_scatter.set_ylabel("Temperature")
+        ax_scatter.legend()
+
+        ax_scatter.set_title(f"({chr(97 + i*2)})")
+        ax_scatter.set_xlabel("Lagged NAO Index")
+        ax_scatter.set_ylabel("Temperature")
+        ax_scatter.legend()
+
+        # KDE — corresponding subplot (right of each row)
+        old_filtered = get_filtered(old_winter, quant, temp, fix_old, is_new=False)
+        new_filtered = get_filtered(new_winter, quant, temp, fix_old, is_new=True, ref_data=old_winter)
+
+        ax_kde = axs[row, col_kde]
+        sns.kdeplot(data=old_filtered, x='Temp', color='orange', fill=False, ax=ax_kde, label='Old')
+        sns.kdeplot(data=new_filtered, x='Temp', color='red', fill=False, ax=ax_kde, label='New')
+        ax_kde.set_title(f"({chr(98 + i*2)})")
+        ax_kde.set_xlabel("Temperature")
+        ax_kde.set_ylabel("Density")
+        ax_kde.legend()
+
+    plt.tight_layout()
     plt.show()
+    
+
+
 
 

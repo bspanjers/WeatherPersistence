@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from QAR import QAR_temperature
 import pandas as pd
-from plots_europe import analyze_temperature_vs_nao, plot_nao_quintiles_vs_rain_prob, plot_binomial_probabilities, plot_combined, analyze_nao_precipitation, plot_combined_heatmaps, rolling_window_precipitation, plot_coefficient_evolution
+from plots_europe import plot_single_heatmap, analyze_temperature_vs_nao_combined, plot_nao_quintiles_vs_rain_prob, plot_binomial_probabilities, plot_combined, analyze_nao_precipitation, plot_combined_heatmaps, rolling_window_precipitation, plot_coefficient_evolution
 import os
 
 
@@ -26,16 +26,17 @@ test.plot_fourier_fit_full(vTau=[0.05, 0.5, .95], alpha=0.05)
 
 
 ###### FIGURE 3 #######
-df_05 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_05_1950final.csv')
-df_50 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_.5_1950final.csv')
-df_95 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_95_1950final.csv')
+df_05 = pd.read_csv('../data_persistence/results_05_1950sign_hits.csv')
+df_50 = pd.read_csv('../data_persistence/results_.5_1950sign_hits.csv')
+df_95 = pd.read_csv('../data_persistence/results_95_1950sign_hits.csv')
 
-df_05_plusmin = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_05_1950includeNAO.csv')
-df_50_plusmin = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_.5_1950includeNAO.csv')
-df_95_plusmin = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_95_1950includeNAO.csv')
+df_05_plusmin = pd.read_csv('../data_persistence/results_05_1950NAOsign_hits.csv')
+df_50_plusmin = pd.read_csv('../data_persistence/results_.5_1950NAOsign_hits.csv')
+df_95_plusmin = pd.read_csv('../data_persistence/results_95_1950NAOsign_hits.csv')
 
 df_results_list = [df_05, df_50, df_95, df_05_plusmin, df_50_plusmin, df_95_plusmin]
-plot_combined(df_results_list, 'winter')
+plot_combined(df_results_list, 'winter', bSignificance=False, pattern='NAO')
+
 
 
 ######## FIGURE 4 rolling window precipitation
@@ -43,8 +44,9 @@ rolling_window_precipitation(sCity='DE BILT')
 
 
 ##### FIGURE 5 #######
-df1 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_precipitation_1950Fig4b.csv')
-df2 = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_precipitation_1950WithUncProbabilities.csv')
+df1 = pd.read_csv('../data_persistence/results_precipitation_1950Fig4b.csv')
+df2 = pd.read_csv('../data_persistence/results_precipitation_1950WithUncProbabilities_hits.csv')
+
 
 plot_combined_heatmaps(
     df1=df1,  # Now becomes subplot (b)
@@ -52,10 +54,12 @@ plot_combined_heatmaps(
     sType1='percentage_rainy_days_upperquintile',
     title1='',
     sSeason='winter',
-    sType2='_unc',
-    title2=''
+    sType2='',
+    title2='',
+    sign=False
 )
 
+plot_single_heatmap(df2, '', '', 'winter', sign=False)
 
 #### FIGURE 6
 # Parameters
@@ -68,31 +72,28 @@ plot_binomial_probabilities(total_days=total_days, p1=p1, p2=p2)
 
 
 ######## APPENDIX!!
-######## FIGURE 7 #########
 
-test = QAR_temperature(sCity='DE BILT', fTau=.05, use_statsmodels=True, include_nao=True, split_nao=True, iLeafs=2)
-test.plot_paths_with_nao(2019)
-test = QAR_temperature(sCity='DE BILT', fTau=.5, use_statsmodels=True, include_nao=True, split_nao=True, iLeafs=2)
-test.plot_paths_with_nao(2019)
-test = QAR_temperature(sCity='DE BILT', fTau=.95, use_statsmodels=True, include_nao=True, split_nao=True, iLeafs=2)
-test.plot_paths_with_nao(2019)
+###### SUPPLEMENTARY FIGURE 1 #######
+df_05 = pd.read_csv('../data_persistence/results_05_1950sign_hits.csv')
+df_50 = pd.read_csv('../data_persistence/results_.5_1950sign_hits.csv')
+df_95 = pd.read_csv('../data_persistence/results_95_1950sign_hits.csv')
 
+df_05_plusmin = pd.read_csv('../data_persistence/results_05_1950NAOsign_hits.csv')
+df_50_plusmin = pd.read_csv('../data_persistence/results_.5_1950NAOsign_hits.csv')
+df_95_plusmin = pd.read_csv('../data_persistence/results_95_1950NAOsign_hits.csv')
 
-########## FIGURE 8
-plot_coefficient_evolution(sCity='DE BILT')
+df_results_list = [df_05, df_50, df_95, df_05_plusmin, df_50_plusmin, df_95_plusmin]
+plot_combined(df_results_list, 'winter', bSignificance=True, pattern='NAO')
 
+####### SUPPLEMENTARY FIGURE 2  (boxplot temperature)
 
-#######FIGURE 9  boxplot temperature
-
-# Directory where the CSV files are located
-directory = "/Users/admin/Documents/PhD/persistence/data_persistence/"
 
 # Initialize lists to store data
 data = []
 excluded_years = []
 
 # Loop through all the files in the directory
-for filename in sorted(os.listdir(directory)):
+for filename in sorted(os.listdir("../data_persistence/")):
     # Only process files that start with 'results_' and end with '_0.95_1950.csv'
     if filename.startswith("results_") and filename.endswith("_0.95_1950.csv"):
         # Extract the excluded year from the filename
@@ -100,7 +101,7 @@ for filename in sorted(os.listdir(directory)):
         excluded_years.append(excluded_year)
 
         # Read the CSV file
-        filepath = os.path.join(directory, filename)
+        filepath = os.path.join("../data_persistence/", filename)
         df = pd.read_csv(filepath)
 
         # Extract the 'mean_diff_pers_winter' column
@@ -127,28 +128,73 @@ plt.ylabel("$\\bar{\\Delta}_{\\phi}(\\tau)$")
 plt.tight_layout()
 plt.show()
 
+######## SUPPLEMENTARY FIGURE 3 & 4:
+
+## RUN nao_transitions.py
+
+######## SUPPLEMENTARY FIGURE 5 ##########
+test = QAR_temperature(
+    sCity='DE BILT',
+    fTau=0.95,
+    use_statsmodels=True,
+    include_nao=True,
+    split_nao=True,
+    iLeafs=2
+)
+
+analyze_temperature_vs_nao_combined(test, quant=0.95, temp=False)
+
+######## SUPPLEMENTARY FIGURE 6 #########
+
+test = QAR_temperature(sCity='DE BILT', fTau=.05, use_statsmodels=True, include_nao=True, split_nao=True, iLeafs=2)
+test.plot_paths_with_nao(2019, alpha=0.05)
+test = QAR_temperature(sCity='DE BILT', fTau=.5, use_statsmodels=True, include_nao=True, split_nao=True, iLeafs=2)
+test.plot_paths_with_nao(2019, alpha=0.05)
+test = QAR_temperature(sCity='DE BILT', fTau=.95, use_statsmodels=True, include_nao=True, split_nao=True, iLeafs=2)
+test.plot_paths_with_nao(2019, alpha=0.05)
 
 
+########## SUPPLEMENTARY FIGURE 7 (rolling window analysis temperature de bilt) 
+plot_coefficient_evolution(sCity='DE BILT')
 
 
-######## FIGURE 10 KDES APPENDIX ##########
-analyze_temperature_vs_nao(sCity='DE BILT', quant=0.05, temp=True, fix_old=True)
-analyze_temperature_vs_nao(sCity='DE BILT', quant=0.05, temp=True, fix_old=False)
+###### SUPPLEMENTARY FIGURE 8 #######
+df_05 = pd.read_csv('../data_persistence/results_05_1950sign_hits.csv')
+df_50 = pd.read_csv('../data_persistence/results_.5_1950sign_hits.csv')
+df_95 = pd.read_csv('../data_persistence/results_95_1950sign_hits.csv')
 
-analyze_temperature_vs_nao(sCity='DE BILT', quant=0.95, temp=False, fix_old=True)
-analyze_temperature_vs_nao(sCity='DE BILT', quant=0.95, temp=False, fix_old=False)
+df_95_plusmin = pd.read_csv('../data_persistence/results_95_1950SCANDsign_hits.csv')
+df_05_plusmin = pd.read_csv('../data_persistence/results_05_1950SCANDsign_hits.csv')
+df_50_plusmin = pd.read_csv('../data_persistence/results_.5_1950SCANDsign_hits.csv')
 
-
-
-############# FIGURE 11 coef plots precip de bilt
-plot_nao_quintiles_vs_rain_prob(sCity='DE BILT')
-
-
+df_results_list = [df_05, df_50, df_95, df_05_plusmin, df_50_plusmin, df_95_plusmin]
+plot_combined(df_results_list, 'winter', bSignificance=False, pattern='SCAND')
 
 
-######## FIGURE 12
+###### SUPPLEMENTARY FIGURE 9 #######
+df_05 = pd.read_csv('../data_persistence/results_05_1950sign_hits.csv')
+df_50 = pd.read_csv('../data_persistence/results_.5_1950sign_hits.csv')
+df_95 = pd.read_csv('../data_persistence/results_95_1950sign_hits.csv')
+
+df_05_plusmin = pd.read_csv('../data_persistence/results_05_1950AMOsign_hits.csv')
+df_50_plusmin = pd.read_csv('../data_persistence/results_.5_1950AMOsign_hits.csv')
+df_95_plusmin = pd.read_csv('../data_persistence/results_95_1950AMOsign_hits.csv')
+
+df_results_list = [df_05, df_50, df_95, df_05_plusmin, df_50_plusmin, df_95_plusmin]
+plot_combined(df_results_list, 'winter', bSignificance=False, pattern='AMO')
+
+
+############# SUPPLEMENTARY FIGURE 10 
+plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', pattern='NAO')
+
+############## SUPPLEMENTARY FIGURE 11
+df2 = pd.read_csv('../data_persistence/results_precipitation_1950WithUncProbabilities_hits.csv')
+plot_single_heatmap(df2, '', '', 'winter', sign=True)
+
+
+######## SUPPLEMENTARY FIGURE 12
 # Path where the new precipitation CSV files are stored
-folder_path = '/Users/admin/Documents/PhD/persistence/data_persistence/'  # Replace with your actual folder path
+folder_path = '../data_persistence/'  # Replace with your actual folder path
 
 # List all the files that match the "results_precipitation_DJF_YYYY.csv" pattern
 files = sorted([file for file in os.listdir(folder_path) if file.startswith('results_precipitation_DJF_') and file.endswith('.csv')])
@@ -186,5 +232,16 @@ ax.set_ylabel('Value')
 plt.tight_layout()
 plt.show()
 
+
+############## SUPPLEMENTARY FIGURE 13
+df2 = pd.read_csv('../data_persistence/results_precipitation_1950WithUncProbabilities_hits_SCAND.csv')
+plot_single_heatmap(df2, '', '', 'winter', sign=False)
+
+
+############## SUPPLEMENTARY FIGURE 14
+df2 = pd.read_csv('../data_persistence/results_precipitation_1950WithUncProbabilities_hits_AMO_low.csv')
+plot_single_heatmap(df2, '', '', 'winter', sign=False)
+df2 = pd.read_csv('../data_persistence/results_precipitation_1950WithUncProbabilities_hits_AMO_high.csv')
+plot_single_heatmap(df2, '', '', 'winter', sign=False)
 
 

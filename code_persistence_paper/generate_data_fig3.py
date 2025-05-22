@@ -11,9 +11,9 @@ start_year_old = start_date
 end_year_old = start_date + 30
 start_year_new = 1990
 end_year_new = start_year_new + 30
-tau = .05
+tau = .5
 drop_na_larger_than = 0.05
-iLeafs = 1
+iLeafs = 2
 if iLeafs > 1:
     split_nao = True
     include_nao = True
@@ -46,13 +46,13 @@ for (i, file_name) in enumerate(df.file_name):
                        newend = str(end_year_new) + '-', newstart= str(start_year_new) + '-',
                        include_nao=include_nao, split_nao=split_nao, iLeafs=iLeafs)
     if test.iLeafs >= 2:
-        season_list_pers = ['mean_diff_pers_winter_', 'mean_diff_pers_spring_', 'mean_diff_pers_summer_', 'mean_diff_pers_autumn_']
+        season_list_pers = ['mean_diff_pers_winter_', 'mean_diff_pers_spring_', 'mean_diff_pers_summer_', 'mean_diff_pers_autumn_', 'hit']
     else: 
-        season_list_pers = ['mean_diff_pers_winter', 'mean_diff_pers_spring', 'mean_diff_pers_summer', 'mean_diff_pers_autumn']
+        season_list_pers = ['mean_diff_pers_winter', 'mean_diff_pers_spring', 'mean_diff_pers_summer', 'mean_diff_pers_autumn', 'hit']
     season_list_mean = ['mean_diff_winter_', 'mean_diff_spring_', 'mean_diff_summer_', 'mean_diff_autumn_']
     try: 
         if test.iLeafs >= 2:    
-            test.plot_paths_with_nao(2019, plot=False)   
+            test.results()   
         else: 
             test.results()
         for leaf in range(test.iLeafs):
@@ -63,10 +63,21 @@ for (i, file_name) in enumerate(df.file_name):
             mean_diff_pers_spring = diff_pers.loc[diff_pers.index.month.isin([3, 4, 5])].mean()
             mean_diff_pers_summer = diff_pers.loc[diff_pers.index.month.isin([6, 7, 8])].mean()
             mean_diff_pers_autumn = diff_pers.loc[diff_pers.index.month.isin([9, 10, 11])].mean()
-            if test.iLeafs >= 2:
-                df_results.loc[i, [season_list_pers[i] + str(leaf) for i in range(len(season_list_pers))]] = mean_diff_pers_winter.values[leaf], mean_diff_pers_spring.values[leaf], mean_diff_pers_summer.values[leaf], mean_diff_pers_autumn.values[leaf]
+            if test.iLeafs>1:
+                uniform_lower_bound, uniform_upper_bound = test.lower_combined.iloc[:,leaf], test.upper_combined.iloc[:,leaf]
             else: 
-                df_results.loc[i, [season_list_pers[i] for i in range(len(season_list_pers))]] = mean_diff_pers_winter, mean_diff_pers_spring, mean_diff_pers_summer, mean_diff_pers_autumn
+                uniform_lower_bound, uniform_upper_bound = test.lower_combined, test.upper_combined
+
+            uniform_lower_bound_winter = uniform_lower_bound.loc[uniform_lower_bound.index.month.isin([12,1,2])]
+            uniform_upper_bound_winter = uniform_upper_bound.loc[uniform_upper_bound.index.month.isin([12,1,2])]
+            outside_zero = (uniform_lower_bound_winter > 0) | (uniform_upper_bound_winter < 0)
+
+            # Check if any such violations exist
+            hit = outside_zero.any()
+            if test.iLeafs >= 2:
+                df_results.loc[i, [season_list_pers[i] + str(leaf) for i in range(len(season_list_pers))]] = mean_diff_pers_winter.values[leaf], mean_diff_pers_spring.values[leaf], mean_diff_pers_summer.values[leaf], mean_diff_pers_autumn.values[leaf], hit
+            else: 
+                df_results.loc[i, [season_list_pers[i] for i in range(len(season_list_pers))]] = mean_diff_pers_winter, mean_diff_pers_spring, mean_diff_pers_summer, mean_diff_pers_autumn, hit
 
         #mean differences in temperature per season
         mean_diff_winter = test.new.loc[test.new.index.month.isin([12, 1, 2])].mean() - test.old.loc[test.old.index.month.isin([12,1,2])].mean()
@@ -80,7 +91,7 @@ for (i, file_name) in enumerate(df.file_name):
 df_results05 = df_results
 #df_results = df_results.dropna().set_index('STANAME')
 #df_results = df_results.drop(['IZANA','ELAT', 'ELAT-1', 'STA. CRUZ DE TENERIFE', 'TENERIFE/LOS RODEOS'],axis=0)
-#df_results.to_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_' + str(tau)[-2:] + '_' + str(start_date) + '.csv')
+#df_results.to_csv('/Users/admin/Documents/PhD/persistence/data_persistence/results_' + str(tau)[-2:] + '_' + str(start_date) + 'AMOsign_hits.csv')
 
 
 
