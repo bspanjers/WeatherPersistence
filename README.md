@@ -1,11 +1,9 @@
 # **Replication Guide for**  
- *Increased Persistence of Warm and Wet Winter Weather in Northwestern Europe Due to Trends Towards Strongly Positive NAO*
+ *Increased persistence of warm and wet winter weather in recent decades in north-western Europe*
 
-## ** Overview**
+## **Overview**
 This guide explains how to **replicate** the results of our study.  
-The easiest way to obtain the figures it to go to the **plots_paper** notebook. If you want to generate the weather station data in Figure 1, 3 and 4, we refer to the **gen_precipitation_data** and **gen_temperature_data** notebooks. Otherwise, follow the steps below
-
-Follow the steps below to set up the necessary **data** and **code**.
+The easiest way to obtain the figures it to go to the **plots_paper** notebook. If you want to generate the weather station data in Figure 1, 3 and 4, we refer to the **gen_precipitation_data** and **gen_temperature_data** notebooks. Otherwise, follow the steps below to set up the necessary **data** and **code**.
 
 ---
 
