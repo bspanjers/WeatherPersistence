@@ -49,11 +49,11 @@ class QAR_precipitation:
         
     def prepare_data(self):
         if self.pattern == 'NAO':
-            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
+            nao_index = pd.read_csv('/Users/barend/Documents/WeatherPersistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
         elif self.pattern == 'SCAND':
-            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/scand_index.csv')
+            nao_index = pd.read_csv('/Users/barend/Documents/WeatherPersistence/data_persistence/scand_index.csv')
         elif self.pattern == 'AMO':
-            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/amo_daily.csv')
+            nao_index = pd.read_csv('/Users/barend/Documents/WeatherPersistence/data_persistence/amo_daily.csv')
 
         
         nao_index['date'] = pd.to_datetime(nao_index[['year', 'month', 'day']])

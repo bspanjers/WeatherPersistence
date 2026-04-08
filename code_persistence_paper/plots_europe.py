@@ -228,7 +228,7 @@ def plot_heatmap(df_results, latitude, longitude, ax, sType, title):
     ax.set_title(title, fontsize=12)
     return sc
 
-def rolling_window_precipitation(sCity='DE BILT', mm_threshold=5, quantile=0.8, window_size=30, confidence=0.95):
+def rolling_window_precipitation(sCity='DE BILT', mm_threshold=5, quantile=0.8, window_size=30, confidence=0.95, greyscale=False):
     """
     Performs a rolling window analysis (30-year periods) of the probability of precipitation 
     in the upper quintile of the NAO index.
@@ -305,23 +305,35 @@ def rolling_window_precipitation(sCity='DE BILT', mm_threshold=5, quantile=0.8, 
     # Convert results into DataFrame
     prob_rain_df = pd.DataFrame(prob_rain_upper_nao_30_year)
 
+
     # Plot results
     fig, ax1 = plt.subplots(figsize=(10, 6), dpi=200, facecolor='white')
 
+    # Define colors based on greyscale parameter
+    if greyscale:
+        color1 = '#404040'  # Dark grey for probability line
+        color2 = '#808080'  # Medium grey for NAO line
+        fill_color = '#404040'
+    else:
+        color1 = 'blue'
+        color2 = 'red'
+        fill_color = 'blue'
+
     # Plot probability of rain
-    line1, = ax1.plot(prob_rain_df['end_year'].values, prob_rain_df['prob_rain'].values, marker='o', linestyle='-', color='blue', label='Probability of rain (upper NAO quintile)')
-    ax1.fill_between(prob_rain_df['end_year'], prob_rain_df['ci_low'], prob_rain_df['ci_high'], color='blue', alpha=0.3, label='95% Confidence Interval')
+    line1, = ax1.plot(prob_rain_df['end_year'].values, prob_rain_df['prob_rain'].values, marker='o', linestyle='-', color=color1, label='Probability of rain (upper NAO quintile)')
+    ax1.fill_between(prob_rain_df['end_year'], prob_rain_df['ci_low'], prob_rain_df['ci_high'], color=fill_color, alpha=0.3, label='95% Confidence Interval')
     ax1.set_xlabel('End Year of 30-Year Window')
     ax1.set_ylabel('Probability of Rain', color='black')
     ax1.grid(True)
     ax1.set_title(f'Probability of Rain in Upper NAO Quintile in {sCity} in Winter (30-Year Windows)')
-    ax1.tick_params(axis='y', colors='blue')
+    ax1.tick_params(axis='y', colors=color1)
 
     # Add second axis for NAO index upper quintile
     ax2 = ax1.twinx()
-    line2, = ax2.plot(prob_rain_df['end_year'].values, upper_quintile_values, marker='s', linestyle='--', color='red', label='80$^{th}$ Percentile of NAO Index')
+    line2, = ax2.plot(prob_rain_df['end_year'].values, upper_quintile_values, marker='s', linestyle='--', color=color2, label='80$^{th}$ Percentile of NAO Index')
     ax2.set_ylabel('NAO Index Value', color='black')
-    ax2.tick_params(axis='y', colors='red')
+    ax2.tick_params(axis='y', colors=color2)
+
 
     # Merge legends from both axes
     lines = [line1, line2]
@@ -332,8 +344,7 @@ def rolling_window_precipitation(sCity='DE BILT', mm_threshold=5, quantile=0.8, 
     plt.show()
 
 
-
-def plot_binomial_probabilities(total_days=21, p1=0.6518518518518519, p2=0.5555555555555556):
+def plot_binomial_probabilities(total_days=21, p1=0.6518518518518519, p2=0.5555555555555556, greyscale=False):
     """
     Plots the binomial probability mass function (PMF) and cumulative density function (CDF)
     for two given probabilities over a defined number of trials (days).
@@ -342,6 +353,7 @@ def plot_binomial_probabilities(total_days=21, p1=0.6518518518518519, p2=0.55555
     - total_days (int): Number of trials (e.g., total days in observation period)
     - p1 (float): First probability of success
     - p2 (float): Second probability of success
+    - greyscale (bool): If True, use greyscale colors (default: False)
 
     Returns:
     - None (Displays the plot)
@@ -357,12 +369,20 @@ def plot_binomial_probabilities(total_days=21, p1=0.6518518518518519, p2=0.55555
     prob_x_days_1 = stats.binom.pmf(x_days, total_days, p1)
     prob_x_days_2 = stats.binom.pmf(x_days, total_days, p2)
 
+    # Define colors based on greyscale parameter
+    if greyscale:
+        color1 = '#404040'  # Dark grey
+        color2 = '#808080'  # Medium grey
+    else:
+        color1 = 'red'
+        color2 = 'orange'
+
     # Create the combined figure
-    fig, axs = plt.subplots(1, 2, figsize=(16, 6), dpi=200)
+    fig, axs = plt.subplots(1, 2, figsize=(16, 6), dpi=200, facecolor='white')
 
     # First subplot: Binomial probability (PMF)
-    axs[0].plot(x_days, prob_x_days_1, label=f'p = {np.round(p1,4)}', marker='o', color='red')
-    axs[0].plot(x_days, prob_x_days_2, label=f'p = {np.round(p2,4)}', marker='o', color='orange')
+    axs[0].plot(x_days, prob_x_days_1, label=f'p = {np.round(p1,4)}', marker='o', color=color1)
+    axs[0].plot(x_days, prob_x_days_2, label=f'p = {np.round(p2,4)}', marker='o', color=color2)
     axs[0].set_xlabel('Days with precipitation exceeding 0.5mm')
     axs[0].set_ylabel('Density')
     axs[0].set_xticks(x_days)
@@ -371,18 +391,18 @@ def plot_binomial_probabilities(total_days=21, p1=0.6518518518518519, p2=0.55555
     axs[0].set_title('(a) Probability Density')
 
     # Second subplot: Cumulative probability (CDF)
-    axs[1].plot(x_days, cumulative_prob_x_days_1, label=f'Cumulative p = {np.round(p1,4)}', marker='o', color='red')
-    axs[1].plot(x_days, cumulative_prob_x_days_2, label=f'Cumulative p = {np.round(p2,4)}', marker='o', color='orange')
+    axs[1].plot(x_days, cumulative_prob_x_days_1, label=f'Cumulative p = {np.round(p1,4)}', marker='o', color=color1)
+    axs[1].plot(x_days, cumulative_prob_x_days_2, label=f'Cumulative p = {np.round(p2,4)}', marker='o', color=color2)
     axs[1].set_xlabel('Days with precipitation exceeding 0.5mm')
     axs[1].set_ylabel('Cumulative Density')
     axs[1].set_xticks(x_days)
     axs[1].grid(True)
     axs[1].legend()
     axs[1].set_title('(b) Cumulative Density')
-    axs[1].axhline(y=1-0.1054, color='orange', linestyle='--', linewidth=.75, label='$y=1-0.1054$')
-    axs[1].axhline(y=1-0.3634, color='red', linestyle='--', linewidth=.75, label='$y=1-0.3634$')
+    axs[1].axhline(y=1-0.1054, color=color2, linestyle='--', linewidth=.75, label='$y=1-0.1054$')
+    axs[1].axhline(y=1-0.3634, color=color1, linestyle='--', linewidth=.75, label='$y=1-0.3634$')
     
-    plt.legend()
+    axs[1].legend()
     plt.tight_layout()
     plt.show()
 
@@ -641,16 +661,27 @@ def plot_single_heatmap(df1, sType, title, sSeason, sign=True):
     plt.show()
 
     
-def plot_coefficient_evolution(sCity='DE BILT'):
+def plot_coefficient_evolution(sCity='DE BILT', greyscale=False):
     """
     Computes and plots the evolution of coefficients and NAO index over 30-year windows.
 
     Parameters:
     - sCity (str): City to analyze (default: 'DE BILT')
+    - greyscale (bool): If True, use greyscale colors (default: False)
 
     Returns:
     - None (Displays plots)
     """
+
+    # Define colors based on greyscale parameter
+    if greyscale:
+        color1 = '#404040'  # Dark grey for coefficient line
+        color2 = '#808080'  # Medium grey for NAO line
+        fill_color = '#404040'
+    else:
+        color1 = 'blue'
+        color2 = 'red'
+        fill_color = 'blue'
 
     # Initialize lists to store values for minus (0) and plus (1) versions
     l_coefs = {fTau: {'minus': [], 'plus': []} for fTau in [0.05, 0.5, 0.95]}
@@ -706,28 +737,28 @@ def plot_coefficient_evolution(sCity='DE BILT'):
             ax = axs[col, row]
             
             # Plot coefficient values
-            line1, = ax.plot(x, l_coefs[fTau][sign], marker='o', linestyle='-', color='blue')
+            line1, = ax.plot(x, l_coefs[fTau][sign], marker='o', linestyle='-', color=color1)
             ax.fill_between(x, [l_conf_low[fTau][sign][i][0] for i in range(len(l_conf_low[fTau][sign]))],
                             [l_conf_up[fTau][sign][i][0] for i in range(len(l_conf_up[fTau][sign]))],
-                            color='blue', alpha=0.3, label='95% Confidence Interval')
+                            color=fill_color, alpha=0.3, label='95% Confidence Interval')
             ax.set_xlabel('End year of 30-year window')
             ax.set_ylabel('Coefficient Value', color='black', rotation=90)
             ax.grid(True)
             ax.set_title(f'{subplot_labels[row + (col * 3)]} {titles[row + (col * 3)]}')
-            ax.tick_params(axis='y', colors='blue')
+            ax.tick_params(axis='y', colors=color1)
 
             # Twin axis for NAO index values
             ax2 = ax.twinx()
-            line2, = ax2.plot(x, upper_quintile_values[fTau][sign], marker='s', linestyle='--', color='red')
+            line2, = ax2.plot(x, upper_quintile_values[fTau][sign], marker='s', linestyle='--', color=color2)
             ax2.set_ylabel('NAO Index Value', color='black', rotation=90)
-            ax2.tick_params(axis='y', colors='red')
+            ax2.tick_params(axis='y', colors=color2)
 
     plt.tight_layout()
     plt.show()
     
     
     
-def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, confidence=0.95, pattern='NAO'):
+def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, confidence=0.95, pattern='NAO', greyscale=False):
     """
     Computes and plots the probability of rain conditioned on NAO index quintiles
     for both past and recent periods.
@@ -737,6 +768,8 @@ def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, 
     - fTau (float): Quantile regression parameter (default: 0.95)
     - mm_threshold (float): Threshold for considering a day as rainy (default: 5mm)
     - confidence (float): Confidence level for error bars (default: 0.95)
+    - pattern (str): Pattern name (default: 'NAO')
+    - greyscale (bool): If True, use greyscale colors (default: False)
 
     Returns:
     - None (Displays the plot)
@@ -798,6 +831,14 @@ def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, 
         ci_high_old.append(mean_temp_old + z_score * se_old)
         p_rain_old.append(mean_temp_old)
 
+    # Define colors based on greyscale parameter
+    if greyscale:
+        color_old = '#808080'  # Medium grey for old data
+        color_new = '#404040'  # Dark grey for new data
+    else:
+        color_old = 'orange'
+        color_new = 'red'
+
     # Create a plot
     plt.figure(figsize=(10, 5), dpi=100, facecolor="white")
 
@@ -806,20 +847,22 @@ def plot_nao_quintiles_vs_rain_prob(sCity='DE BILT', fTau=0.95, mm_threshold=5, 
     width = 0.2  # The width of the bars
 
     # Plot old data
-    plt.errorbar(x - width/2, p_rain_old, yerr=[np.array(p_rain_old) - np.array(ci_low_old), np.array(ci_high_old) - np.array(p_rain_old)], fmt='o', color='orange', label='Old')
+    plt.errorbar(x - width/2, p_rain_old, yerr=[np.array(p_rain_old) - np.array(ci_low_old), np.array(ci_high_old) - np.array(p_rain_old)], 
+                 fmt='o', color=color_old, label='Old', capsize=3, markersize=6)
 
     # Plot new data
-    plt.errorbar(x + width/2, p_rain_new, yerr=[np.array(p_rain_new) - np.array(ci_low_new), np.array(ci_high_new) - np.array(p_rain_new)], fmt='o', color='red', label='New')
+    plt.errorbar(x + width/2, p_rain_new, yerr=[np.array(p_rain_new) - np.array(ci_low_new), np.array(ci_high_new) - np.array(p_rain_new)], 
+                 fmt='s' if greyscale else 'o', color=color_new, label='New', capsize=3, markersize=6)
 
     # Labeling
     plt.xticks(x, [f'Q{i+1}' for i in range(len(p_rain_new))])
     plt.xlabel('NAO Index Quintiles')
     plt.ylabel('Probability of Rain')
-    plt.title('(b)')
     plt.legend()
-    plt.grid(True)
+    plt.grid(True, alpha=0.3)
 
     # Show plot
+    plt.tight_layout()
     plt.show()
 
 
@@ -1018,4 +1061,84 @@ def analyze_temperature_vs_nao_combined(test, quant=0.95, temp=False):
 
 
 
+def plot_excluded_years_boxplot(greyscale=False):
+    """
+    Creates boxplots of mean_diff_pers_winter values across excluded years.
 
+    Parameters:
+    - greyscale (bool): If True, use greyscale colors (default: False)
+
+    Returns:
+    - None (Displays the plot)
+    """
+    
+    # Directory where the CSV files are located
+    directory = "../data_persistence/"
+
+    # Initialize lists to store data
+    data = []
+    excluded_years = []
+
+    # Loop through all the files in the directory
+    for filename in sorted(os.listdir(directory)):
+        # Only process files that start with 'results_' and end with '_0.95_1950.csv'
+        if filename.startswith("results_") and filename.endswith("_0.95_1950.csv"):
+            # Extract the excluded year from the filename
+            excluded_year = filename.split('_')[1]
+            excluded_years.append(excluded_year)
+
+            # Read the CSV file
+            filepath = os.path.join(directory, filename)
+            df = pd.read_csv(filepath)
+
+            # Extract the 'mean_diff_pers_winter' column
+            if 'mean_diff_pers_winter' in df.columns:
+                mean_diff_values = df['mean_diff_pers_winter'].values
+
+                # Remove the maximum value from the column
+                mean_diff_values = mean_diff_values[mean_diff_values != mean_diff_values.max()]
+
+                # Append the remaining values to the data list
+                data.append(mean_diff_values)
+
+    # Define colors based on greyscale parameter
+    if greyscale:
+        box_color = '#606060'      # Medium grey for box fill
+        whisker_color = '#404040'  # Dark grey for whiskers
+        median_color = '#202020'   # Very dark grey for median line
+        flier_color = '#808080'    # Light grey for outliers
+    else:
+        box_color = 'lightblue'
+        whisker_color = 'black'
+        median_color = 'red'
+        flier_color = 'black'
+
+    # Create the boxplot
+    fig, ax = plt.subplots(figsize=(12, 6), dpi=200, facecolor="white")
+    bp = ax.boxplot(data, patch_artist=True)
+
+    # Apply colors to boxplot elements
+    for box in bp['boxes']:
+        box.set_facecolor(box_color)
+        box.set_edgecolor(whisker_color)
+    for whisker in bp['whiskers']:
+        whisker.set_color(whisker_color)
+    for cap in bp['caps']:
+        cap.set_color(whisker_color)
+    for median in bp['medians']:
+        median.set_color(median_color)
+        median.set_linewidth(2)
+    for flier in bp['fliers']:
+        flier.set_markeredgecolor(flier_color)
+        flier.set_markerfacecolor(flier_color if greyscale else 'none')
+
+    # Add labels and title
+    ax.set_xticks(ticks=range(1, len(excluded_years) + 1))
+    ax.set_xticklabels(labels=excluded_years, rotation=90)
+    ax.set_xlabel("Excluded Year")
+    ax.set_ylabel("$\\bar{\\Delta}_{\\phi}(\\tau)$")
+    ax.grid(True, alpha=0.3)
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()

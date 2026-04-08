@@ -27,7 +27,7 @@ class QAR_temperature:
                  Kelvin=False, mid=False, 
                  split_nao=False, include_nao=False, iLeafs=1, power_pers_nao='linear', positive_is_one=True,
                  num_terms_level=2, num_terms_pers=2, use_statsmodels=True,
-                 path='/Users/admin/Documents/PhD/persistence/data_persistence/ECA_blend_tg/', pattern='NAO'):
+                 path='/Users/barend/Documents/WeatherPersistence/data_persistence/ECA_blend_tg/', pattern='NAO'):
         self.Kelvin = Kelvin
         self.sCity = sCity
         self.dropna = dropna
@@ -56,11 +56,11 @@ class QAR_temperature:
         
     def prepare_data(self):
         if self.pattern == 'NAO':
-            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
+            nao_index = pd.read_csv('/Users/barend/Documents/WeatherPersistence/data_persistence/norm.daily.nao.cdas.z500.19500101_current.csv')
         elif self.pattern == 'SCAND':
-            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/scand_index.csv')
+            nao_index = pd.read_csv('/Users/barend/Documents/WeatherPersistence/data_persistence/scand_index.csv')
         elif self.pattern == 'AMO':
-            nao_index = pd.read_csv('/Users/admin/Documents/PhD/persistence/data_persistence/amo_daily.csv')
+            nao_index = pd.read_csv('/Users/barend/Documents/WeatherPersistence/data_persistence/amo_daily.csv')
 
         nao_index['date'] = pd.to_datetime(nao_index[['year', 'month', 'day']])
         nao_index.set_index('date', inplace=True)
@@ -1131,18 +1131,29 @@ class QAR_temperature:
         return_df.index = dfindex
         return return_df
     
-    def plot_paths_with_nao(self, year, conf_intervals=True, alpha=0.1, plot=True):
+    def plot_paths_with_nao(self, year, conf_intervals=True, alpha=0.1, plot=True, greyscale=False):
         if type(self.old) == type(None):
             self.prepare_data()
         resultnew, resultold = self.results()
         num_params_pers = self.num_terms_pers * 2 + 1
         num_params_const = self.num_terms_level * 2 + 1
+        
+        # Define colors based on greyscale parameter
+        if greyscale:
+            color_new = '#404040'  # Dark grey
+            color_old = '#808080'  # Medium grey
+            fill_alpha = 0.15
+        else:
+            color_new = 'red'
+            color_old = 'orange'
+            fill_alpha = 0.1
+        
         if plot == True:
             #        Create the figure and axes
             if self.iLeafs >= 4:
                 n_cols = 2
                 n_rows = (self.iLeafs + 1) // 2  # Ensure enough rows for all leaves
-                fig, axs = plt.subplots(n_rows, n_cols, figsize=(12, 6), dpi=100)
+                fig, axs = plt.subplots(n_rows, n_cols, figsize=(12, 6), dpi=100, facecolor='white')
                 axs = axs.flatten()  # Flatten the grid for easy indexing
             else:
                 
@@ -1177,14 +1188,14 @@ class QAR_temperature:
                     else:
                         row = 0
                     ax.set_title('(' + str(chr(97 + leaf + row)) + ') NAO' + add + ' with $\\tau=$' + str(self.fTau))
-                    ax.plot(curve_new, label='New $\\phi(\\tau)$ path', color='red')
-                    ax.plot(curve_old, label='Old $\\phi(\\tau)$ path', color='orange')
+                    ax.plot(curve_new, label='New $\\phi(\\tau)$ path', color=color_new)
+                    ax.plot(curve_old, label='Old $\\phi(\\tau)$ path', color=color_old, linestyle='--' if greyscale else '-')
                     ax.set_ylabel('$\\phi(\\tau)$')
                     ax.legend()
                     ax.grid(True)
                     if conf_intervals:    
-                        ax.fill_between(curve_old.index, lower_pers_old, upper_pers_old, color='orange', alpha=.1)
-                        ax.fill_between(curve_new.index, lower_pers_new, upper_pers_new, color='red', alpha=.1)
+                        ax.fill_between(curve_old.index, lower_pers_old, upper_pers_old, color=color_old, alpha=fill_alpha)
+                        ax.fill_between(curve_new.index, lower_pers_new, upper_pers_new, color=color_new, alpha=fill_alpha)
                     ax.xaxis.set_major_locator(MonthLocator())
                     ax.xaxis.set_major_formatter(DateFormatter('%b'))
 
